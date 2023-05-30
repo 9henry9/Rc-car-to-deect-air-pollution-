@@ -1,0 +1,64 @@
+import RPi.GPIO as GPIO
+import time
+import pyrebase
+
+config = {
+  "apiKey": "KPMt5TPKHYqX8puDG79aw5WpM8kWLDFB08MkJ0IR",
+  "authDomain": "airpollution-pi.firebaseapp.com",
+  "databaseURL": "https://airpollution-pi-default-rtdb.firebaseio.com",
+  "storageBucket": "airpollution-pi.appspot.com"
+}
+firebase = pyrebase.initialize_app(config)
+
+db = firebase.database()
+# Use BOARD pin numbering scheme
+GPIO.setmode(GPIO.BOARD)
+
+# Set pin 11 as the trigger pin and pin 13 as the echo pin
+trig = 37
+echo = 35
+
+# Set trigger pin as output and echo pin as input
+GPIO.setup(trig, GPIO.OUT)
+GPIO.setup(echo, GPIO.IN)
+
+try:
+    while True:
+        # Set trigger pin to low
+        GPIO.output(trig, False)
+        time.sleep(0.5)
+
+        # Send a 10 microsecond pulse to the trigger pin
+        GPIO.output(trig, True)
+        time.sleep(0.00001)
+        GPIO.output(trig, False)
+
+        # Wait for the echo pin to go high
+        while GPIO.input(echo) == 0:
+            pass
+        start = time.time()
+
+        # Wait for the echo pin to go low
+        while GPIO.input(echo) == 1:
+            pass
+        end = time.time()
+
+        # Calculate distance using the time it took for the echo pin to change state
+        distance = ((end - start) * 34300) / 2
+        print("Distance:", distance, "cm")
+        time.sleep(0.5)
+
+
+        # Push the data to the Firebase database
+        data = {
+        "Distance" : distance,
+        }
+        db.child("Status").push(data)
+
+        db.update(data)
+        print("Sent to Firebase")
+
+except KeyboardInterrupt:
+    # Clean up and exit
+    GPIO.cleanup()
+
